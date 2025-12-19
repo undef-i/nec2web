@@ -1,0 +1,41 @@
+file(REMOVE_RECURSE
+  "CMakeFiles/nec_engine.dir/bindings.cpp.o"
+  "CMakeFiles/nec_engine.dir/bindings.cpp.o.d"
+  "CMakeFiles/nec_engine.dir/src/c_evlcom.cpp.o"
+  "CMakeFiles/nec_engine.dir/src/c_evlcom.cpp.o.d"
+  "CMakeFiles/nec_engine.dir/src/c_geometry.cpp.o"
+  "CMakeFiles/nec_engine.dir/src/c_geometry.cpp.o.d"
+  "CMakeFiles/nec_engine.dir/src/c_ggrid.cpp.o"
+  "CMakeFiles/nec_engine.dir/src/c_ggrid.cpp.o.d"
+  "CMakeFiles/nec_engine.dir/src/c_plot_card.cpp.o"
+  "CMakeFiles/nec_engine.dir/src/c_plot_card.cpp.o.d"
+  "CMakeFiles/nec_engine.dir/src/electromag.cpp.o"
+  "CMakeFiles/nec_engine.dir/src/electromag.cpp.o.d"
+  "CMakeFiles/nec_engine.dir/src/libNEC.cpp.o"
+  "CMakeFiles/nec_engine.dir/src/libNEC.cpp.o.d"
+  "CMakeFiles/nec_engine.dir/src/matrix_algebra.cpp.o"
+  "CMakeFiles/nec_engine.dir/src/matrix_algebra.cpp.o.d"
+  "CMakeFiles/nec_engine.dir/src/misc.cpp.o"
+  "CMakeFiles/nec_engine.dir/src/misc.cpp.o.d"
+  "CMakeFiles/nec_engine.dir/src/nec_context.cpp.o"
+  "CMakeFiles/nec_engine.dir/src/nec_context.cpp.o.d"
+  "CMakeFiles/nec_engine.dir/src/nec_exception.cpp.o"
+  "CMakeFiles/nec_engine.dir/src/nec_exception.cpp.o.d"
+  "CMakeFiles/nec_engine.dir/src/nec_ground.cpp.o"
+  "CMakeFiles/nec_engine.dir/src/nec_ground.cpp.o.d"
+  "CMakeFiles/nec_engine.dir/src/nec_output.cpp.o"
+  "CMakeFiles/nec_engine.dir/src/nec_output.cpp.o.d"
+  "CMakeFiles/nec_engine.dir/src/nec_radiation_pattern.cpp.o"
+  "CMakeFiles/nec_engine.dir/src/nec_radiation_pattern.cpp.o.d"
+  "CMakeFiles/nec_engine.dir/src/nec_results.cpp.o"
+  "CMakeFiles/nec_engine.dir/src/nec_results.cpp.o.d"
+  "CMakeFiles/nec_engine.dir/src/nec_structure_currents.cpp.o"
+  "CMakeFiles/nec_engine.dir/src/nec_structure_currents.cpp.o.d"
+  "nec_engine.js"
+  "nec_engine.pdb"
+)
+
+# Per-language clean rules from dependency scanning.
+foreach(lang CXX)
+  include(CMakeFiles/nec_engine.dir/cmake_clean_${lang}.cmake OPTIONAL)
+endforeach()
