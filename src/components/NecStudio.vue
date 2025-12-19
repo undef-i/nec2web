@@ -5,12 +5,11 @@ import {
   onMounted,
   onBeforeUnmount,
   watch,
-  shallowRef,
   nextTick,
 } from "vue";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import Chart from "chart.js/auto";
+import AnalysisCharts from "./AnalysisCharts.vue";
 
 const presets = [
   {
@@ -218,8 +217,6 @@ const presets = [
 
 const wasmModule = ref(null);
 const canvasRef = ref(null);
-const swrChartRef = ref(null);
-const smithChartRef = ref(null);
 
 const status = reactive({
   ready: false,
@@ -274,7 +271,6 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
-  if (chartInstance.value) chartInstance.value.destroy();
   cancelAnimationFrame(animationId);
   if (renderer) renderer.dispose();
 });
@@ -409,15 +405,6 @@ const runSweep = async () => {
   sweepData.values = [];
   sweepData.impedance = [];
 
-  initSWRChart();
-
-  if (chartInstance.value) {
-    chartInstance.value.data.labels = [];
-    chartInstance.value.data.datasets[0].data = [];
-    chartInstance.value.update("none");
-  }
-  drawSmithChart(true);
-
   const start = Number(sweepParams.start);
   const end = Number(sweepParams.end);
   const steps = parseInt(sweepParams.steps);
@@ -433,11 +420,13 @@ const runSweep = async () => {
       if (res.success) {
         let val = res.swr_50;
         if (val > 20 || isNaN(val)) val = 20;
+
         sweepData.labels.push(f.toFixed(1));
         sweepData.values.push(val);
         sweepData.impedance.push({ r: res.impedance.r, i: res.impedance.i });
       }
     } catch (e) {
+      console.error(e);
     } finally {
       if (eng) eng.delete();
     }
@@ -446,120 +435,8 @@ const runSweep = async () => {
     await new Promise((r) => setTimeout(r, 0));
   }
 
-  updateChart();
-  drawSmithChart(false);
   status.msg = "Done";
   status.calculating = false;
-};
-
-const chartInstance = shallowRef(null);
-
-const initSWRChart = () => {
-  if (!swrChartRef.value) return;
-  if (chartInstance.value) chartInstance.value.destroy();
-
-  const ctx = swrChartRef.value.getContext("2d");
-  chartInstance.value = new Chart(ctx, {
-    type: "line",
-    data: {
-      labels: [],
-      datasets: [
-        {
-          label: "SWR",
-          data: [],
-          borderColor: "#000000",
-          borderWidth: 1,
-          pointRadius: 0,
-          tension: 0,
-          fill: false,
-        },
-      ],
-    },
-    options: {
-      animation: false,
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { grid: { display: false } },
-        y: { min: 1.0, title: { display: true, text: "SWR" } },
-      },
-    },
-  });
-};
-
-const updateChart = () => {
-  if (!chartInstance.value) initSWRChart();
-  if (chartInstance.value) {
-    chartInstance.value.data.labels = sweepData.labels;
-    chartInstance.value.data.datasets[0].data = sweepData.values;
-    chartInstance.value.update();
-  }
-};
-
-const drawSmithChart = (clearOnly = false) => {
-  if (!smithChartRef.value) return;
-  const canvas = smithChartRef.value;
-  const ctx = canvas.getContext("2d");
-  const w = canvas.width;
-  const h = canvas.height;
-  const cx = w / 2;
-  const cy = h / 2;
-  const r = Math.min(w, h) / 2 - 5;
-
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(0, 0, w, h);
-
-  if (clearOnly) return;
-
-  const g2p = (u, v) => ({ x: cx + u * r, y: cy - v * r });
-
-  ctx.lineWidth = 0.5;
-  ctx.strokeStyle = "#ccc";
-  const drawRCircle = (res) => {
-    const g_center_u = res / (1 + res);
-    const g_radius = 1 / (1 + res);
-    ctx.beginPath();
-    ctx.arc(cx + g_center_u * r, cy, g_radius * r, 0, 2 * Math.PI);
-    ctx.stroke();
-  };
-  [0, 0.5, 1.0, 2.0, 5.0].forEach(drawRCircle);
-
-  ctx.strokeStyle = "#000";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, 2 * Math.PI);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(0, cy);
-  ctx.lineTo(w, cy);
-  ctx.stroke();
-
-  if (sweepData.impedance.length === 0) return;
-
-  ctx.lineWidth = 1.5;
-  ctx.strokeStyle = "#0000FF";
-  ctx.beginPath();
-
-  let started = false;
-  sweepData.impedance.forEach((z) => {
-    const z0 = 50;
-    const rn = z.r / z0;
-    const xn = z.i / z0;
-    const d = (rn + 1) ** 2 + xn ** 2;
-    if (d === 0) return;
-    const u = (rn ** 2 + xn ** 2 - 1) / d;
-    const v = (2 * xn) / d;
-
-    const pos = g2p(u, v);
-    if (!started) {
-      ctx.moveTo(pos.x, pos.y);
-      started = true;
-    } else {
-      ctx.lineTo(pos.x, pos.y);
-    }
-  });
-  ctx.stroke();
 };
 
 let scene, camera, renderer, controls, animationId;
@@ -787,16 +664,6 @@ const update3DScene = () => {
 };
 
 watch(
-  () => ui.tab,
-  () => {
-    if (chartInstance.value) {
-      chartInstance.value.destroy();
-      chartInstance.value = null;
-    }
-  }
-);
-
-watch(
   () => [params.wires, ui.scale, ui.showCurrents, ui.showPattern],
   update3DScene,
   { deep: true }
@@ -825,14 +692,11 @@ const delWire = (i) => params.wires.splice(i, 1);
 <template>
   <div class="layout">
     <div class="viewport" ref="canvasRef"></div>
-
     <button class="toggle" @click="ui.sidebarOpen = !ui.sidebarOpen">
       {{ ui.sidebarOpen ? "<<" : ">>" }}
     </button>
-
     <div class="sidebar" :class="{ closed: !ui.sidebarOpen }">
       <h3>nec2web</h3>
-
       <select @change="loadPreset(presets[$event.target.value])">
         <option disabled selected>Load Preset...</option>
         <option v-for="(p, i) in presets" :key="i" :value="i">
@@ -840,16 +704,13 @@ const delWire = (i) => params.wires.splice(i, 1);
         </option>
       </select>
       <hr />
-
       <div>
         <input type="radio" id="mode1" value="single" v-model="ui.tab" />
         <label for="mode1">Single</label>
-        &nbsp;
         <input type="radio" id="mode2" value="sweep" v-model="ui.tab" />
         <label for="mode2">Analysis</label>
       </div>
       <hr />
-
       <div v-if="ui.tab === 'single'">
         <details open>
           <summary>View</summary>
@@ -876,19 +737,16 @@ const delWire = (i) => params.wires.splice(i, 1);
             >
           </div>
         </details>
-
         <div style="margin-top: 10px">
           Freq (MHz) <input type="number" v-model.number="params.freq" />
         </div>
-
         <details open style="margin-top: 10px">
           <summary>Wires ({{ params.wires.length }})</summary>
           <button @click="addWire">Add</button>
-
           <div v-for="(w, i) in params.wires" :key="i" class="wire-item">
             <div style="display: flex">
-              <b>#{{ i + 1 }}</b>
-              <a
+              <b>#{{ i + 1 }}</b
+              ><a
                 href="javascript:void(0)"
                 @click="delWire(i)"
                 style="margin-left: auto"
@@ -899,8 +757,7 @@ const delWire = (i) => params.wires.splice(i, 1);
               <input v-model.number="w.x1" class="coord" /><input
                 v-model.number="w.y1"
                 class="coord"
-              /><input v-model.number="w.z1" class="coord" />
-              to
+              /><input v-model.number="w.z1" class="coord" /> to
               <input v-model.number="w.x2" class="coord" /><input
                 v-model.number="w.y2"
                 class="coord"
@@ -912,13 +769,11 @@ const delWire = (i) => params.wires.splice(i, 1);
             </div>
           </div>
         </details>
-
         <fieldset style="margin-top: 10px">
           <legend>Source</legend>
           Tag <input v-model.number="params.source.tag" class="short" /> Seg
           <input v-model.number="params.source.seg" class="short" />
         </fieldset>
-
         <button
           @click="runSingle"
           :disabled="status.calculating"
@@ -926,7 +781,6 @@ const delWire = (i) => params.wires.splice(i, 1);
         >
           Calculate
         </button>
-
         <div
           v-if="result.hasResult"
           style="margin-top: 10px; border: 1px solid black; padding: 5px"
@@ -939,54 +793,43 @@ const delWire = (i) => params.wires.splice(i, 1);
           </div>
         </div>
       </div>
-
-      <div v-else>
+      <div v-else class="analysis-panel">
         <fieldset>
           <legend>Range</legend>
-          Start <input type="number" v-model.number="sweepParams.start" /><br />
-          End <input type="number" v-model.number="sweepParams.end" /><br />
-          Steps <input type="number" v-model.number="sweepParams.steps" />
+          Start
+          <input
+            type="number"
+            v-model.number="sweepParams.start"
+            style="width: 50px"
+          />
+          End
+          <input
+            type="number"
+            v-model.number="sweepParams.end"
+            style="width: 50px"
+          />
+          Steps
+          <input
+            type="number"
+            v-model.number="sweepParams.steps"
+            style="width: 40px"
+          />
         </fieldset>
-
         <button
           @click="runSweep"
           :disabled="status.calculating"
           style="margin-top: 10px"
         >
-          Run Analysis
+          {{
+            status.calculating ? `Running ${status.progress}%` : "Run Analysis"
+          }}
         </button>
 
-        <div class="chart-box">
-          <div
-            style="
-              font-size: 10px;
-              text-align: center;
-              border-bottom: 1px solid #ccc;
-            "
-          >
-            SWR
-          </div>
-          <div style="flex: 1; position: relative">
-            <canvas ref="swrChartRef"></canvas>
-          </div>
-        </div>
-
-        <div class="chart-box" style="height: 250px">
-          <div
-            style="
-              font-size: 10px;
-              text-align: center;
-              border-bottom: 1px solid #ccc;
-            "
-          >
-            Smith Chart
-          </div>
-          <div style="flex: 1; position: relative">
-            <canvas ref="smithChartRef" width="300" height="230"></canvas>
-          </div>
+        <!-- 更新：传递 range 参数 -->
+        <div class="chart-container-wrapper">
+          <AnalysisCharts :data="sweepData" :range="sweepParams" />
         </div>
       </div>
-
       <div style="margin-top: auto; padding-top: 10px; text-align: center">
         <a href="https://github.com/undef-i/nec2web" target="_blank">GitHub</a>
       </div>
@@ -1006,20 +849,18 @@ const delWire = (i) => params.wires.splice(i, 1);
   width: 100%;
   height: 100%;
 }
-
 .toggle {
   position: absolute;
   top: 10px;
   left: 10px;
   z-index: 20;
 }
-
 .sidebar {
   position: absolute;
   top: 0;
   left: 0;
   bottom: 0;
-  max-width: 320px;
+  max-width: 340px;
   background: white;
   border-right: 1px solid black;
   z-index: 10;
@@ -1033,7 +874,6 @@ const delWire = (i) => params.wires.splice(i, 1);
 .sidebar.closed {
   transform: translateX(-100%);
 }
-
 summary {
   cursor: pointer;
   user-select: none;
@@ -1049,15 +889,14 @@ summary {
 .short {
   width: 35px;
 }
-.chart-box {
-  height: 150px;
-  border: 1px solid black;
-  margin-top: 10px;
+.analysis-panel {
   display: flex;
   flex-direction: column;
-}
-canvas {
-  width: 100%;
   height: 100%;
+}
+.chart-container-wrapper {
+  flex: 1;
+  margin-top: 10px;
+  overflow-y: auto;
 }
 </style>
