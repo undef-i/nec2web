@@ -409,7 +409,7 @@ const runSweep = async () => {
   sweepData.values = [];
   sweepData.impedance = [];
 
-  if (!chartInstance.value) initSWRChart();
+  initSWRChart();
 
   if (chartInstance.value) {
     chartInstance.value.data.labels = [];
@@ -787,6 +787,16 @@ const update3DScene = () => {
 };
 
 watch(
+  () => ui.tab,
+  () => {
+    if (chartInstance.value) {
+      chartInstance.value.destroy();
+      chartInstance.value = null;
+    }
+  }
+);
+
+watch(
   () => [params.wires, ui.scale, ui.showCurrents, ui.showPattern],
   update3DScene,
   { deep: true }
@@ -977,14 +987,7 @@ const delWire = (i) => params.wires.splice(i, 1);
         </div>
       </div>
 
-      <div
-        style="
-          margin-top: auto;
-          padding-top: 10px;
-          border-top: 1px solid #ccc;
-          text-align: center;
-        "
-      >
+      <div style="margin-top: auto; padding-top: 10px; text-align: center">
         <a href="https://github.com/undef-i/nec2web" target="_blank">GitHub</a>
       </div>
     </div>
@@ -1056,10 +1059,5 @@ summary {
 canvas {
   width: 100%;
   height: 100%;
-}
-a {
-  color: blue;
-  text-decoration: underline;
-  cursor: pointer;
 }
 </style>
