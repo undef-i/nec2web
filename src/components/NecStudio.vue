@@ -73,7 +73,7 @@ const presets = [
   {
     name: "Horn 6-el Yagi (145MHz)",
     freq: 145.0,
-    source: { tag: 10, seg: 8, real: 1.0, imag: 0.0 },
+    source: { tag: 10, seg: 5, real: 1.0, imag: 0.0 },
     wires: [
       {
         x1: -0.4,
