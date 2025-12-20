@@ -403,6 +403,15 @@ const update3DScene = () => {
     const sceneSize = box.getSize(new THREE.Vector3()).length() || 1;
     const rScale = sceneSize * 0.8;
 
+    let sourceCenter = new THREE.Vector3(0, 0, 0);
+    if (params.wires.length >= params.source.tag && params.source.tag > 0) {
+      const sourceWire = params.wires[params.source.tag - 1];
+      const p1 = new THREE.Vector3(sourceWire.x1, sourceWire.y1, sourceWire.z1);
+      const p2 = new THREE.Vector3(sourceWire.x2, sourceWire.y2, sourceWire.z2);
+      const t = (params.source.seg - 0.5) / sourceWire.segs;
+      sourceCenter = new THREE.Vector3().lerpVectors(p1, p2, t);
+    }
+
     const getColor = (val) => {
       let norm = (val - minG) / (maxG - minG);
       if (norm < 0) norm = 0;
@@ -425,7 +434,7 @@ const update3DScene = () => {
       const y = radius * Math.sin(thetaRad) * Math.sin(phiRad);
       const z = radius * Math.cos(thetaRad);
 
-      vertices.push(x, y, z);
+      vertices.push(x + sourceCenter.x, y + sourceCenter.y, z + sourceCenter.z);
       const c = getColor(p.gain);
       colors.push(c.r, c.g, c.b);
     }
