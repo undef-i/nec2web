@@ -65,3 +65,4 @@ necpp.pc
 html/*
 xml/*
 latex/*
+build/*

@@ -42,8 +42,10 @@ struct RadiationPoint {
 };
 
 class NecWrapper {
-private:
+public: 
     nec_context nec;
+    
+private:
     double current_freq;
 
 public:
@@ -180,22 +182,36 @@ public:
         double d_phi   = 360.0 / (phi_steps > 1 ? phi_steps - 1 : 1);
         double wavelength = 299.792458 / current_freq;
 
+        double pin = nec.input_power;
+        if (pin < 1.0e-20) pin = 1.0e-20;
+
+        double z0 = 376.73031346177;
+        double gain_factor = (wavelength * wavelength * 2.0 * 3.14159265359) / (z0 * pin);
+
         for (int i = 0; i < theta_steps; i++) {
             double theta_deg = i * d_theta;
             double theta_rad = theta_deg * 3.14159265359 / 180.0;
             for (int j = 0; j < phi_steps; j++) {
                 double phi_deg = j * d_phi;
                 double phi_rad = phi_deg * 3.14159265359 / 180.0;
+                
                 nec_complex eth, eph;
                 nec.ffld(theta_rad, phi_rad, &eth, &eph, wavelength);
-                double v_gain = norm(eth); 
-                double h_gain = norm(eph); 
-                double t_gain = v_gain + h_gain;
+                
+                double v_mag2 = norm(eth); 
+                double h_mag2 = norm(eph); 
+                
+                double total_gain_lin = (v_mag2 + h_mag2) * gain_factor;
+                double v_gain_lin = v_mag2 * gain_factor;
+                double h_gain_lin = h_mag2 * gain_factor;
+
                 RadiationPoint p;
-                p.theta = theta_deg; p.phi = phi_deg;
-                p.v_gain = 10 * log10(v_gain + 1e-20);
-                p.h_gain = 10 * log10(h_gain + 1e-20);
-                p.total_gain = 10 * log10(t_gain + 1e-20);
+                p.theta = theta_deg;
+                p.phi = phi_deg;
+                p.total_gain = 10.0 * log10(total_gain_lin + 1.0e-20);
+                p.v_gain     = 10.0 * log10(v_gain_lin + 1.0e-20);
+                p.h_gain     = 10.0 * log10(h_gain_lin + 1.0e-20);
+                
                 ret.push_back(p);
             }
         }
