@@ -1,1 +1,0 @@
-/usr/bin/em++ -lembind -sMODULARIZE=1 "-sEXPORT_NAME='createNecEngine'" -sALLOW_MEMORY_GROWTH=1 -sWASM=1 -fexceptions -sDISABLE_EXCEPTION_CATCHING=0 -O3 @CMakeFiles/nec_engine.dir/objects1.rsp -o nec_engine.js 

@@ -1,3 +1,0 @@
-/home/nedi/nec2web/necpp/build/CMakeFiles/nec_engine.dir
-/home/nedi/nec2web/necpp/build/CMakeFiles/edit_cache.dir
-/home/nedi/nec2web/necpp/build/CMakeFiles/rebuild_cache.dir
