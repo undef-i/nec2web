@@ -262,22 +262,51 @@ const initThree = () => {
   animate();
 };
 
+const getSourcePosition = () => {
+  if (params.wires.length >= params.source.tag && params.source.tag > 0) {
+    const w = params.wires[params.source.tag - 1];
+    const x1 = parseFloat(w.x1);
+    const y1 = parseFloat(w.y1);
+    const z1 = parseFloat(w.z1);
+    const x2 = parseFloat(w.x2);
+    const y2 = parseFloat(w.y2);
+    const z2 = parseFloat(w.z2);
+    const segs = parseFloat(w.segs);
+
+    if (![x1, y1, z1, x2, y2, z2, segs].every(Number.isFinite)) {
+      return new THREE.Vector3(0, 0, 0);
+    }
+
+    const p1 = new THREE.Vector3(x1, y1, z1);
+    const p2 = new THREE.Vector3(x2, y2, z2);
+    const t = (Number(params.source.seg) - 0.5) / segs;
+    return new THREE.Vector3().lerpVectors(p1, p2, t);
+  }
+  return new THREE.Vector3(0, 0, 0);
+};
+
 const fitCameraToObject = () => {
-  if (!camera || !controls) return;
+  if (!camera || !controls || params.wires.length === 0) return;
+  
   const box = new THREE.Box3();
   params.wires.forEach((w) => {
-    box.expandByPoint(new THREE.Vector3(w.x1, w.y1, w.z1));
-    box.expandByPoint(new THREE.Vector3(w.x2, w.y2, w.z2));
+    if (w.x1 !== undefined && w.x1 !== '') {
+      box.expandByPoint(new THREE.Vector3(Number(w.x1), Number(w.y1), Number(w.z1)));
+      box.expandByPoint(new THREE.Vector3(Number(w.x2), Number(w.y2), Number(w.z2)));
+    }
   });
-  if (box.isEmpty()) return;
-  const center = box.getCenter(new THREE.Vector3());
+  
   const size = box.getSize(new THREE.Vector3());
-  const maxDim = Math.max(size.x, size.y, size.z);
-  controls.target.copy(center);
+  const maxDim = Math.max(size.x, size.y, size.z) || 1;
+  const sourcePos = getSourcePosition();
+
+  controls.target.copy(sourcePos);
+  
   const offset = new THREE.Vector3(1, 1, 1)
     .normalize()
     .multiplyScalar(Math.max(2, maxDim * 3));
-  camera.position.copy(center).add(offset);
+    
+  camera.position.copy(sourcePos).add(offset);
   controls.update();
 };
 
@@ -292,12 +321,18 @@ const update3DScene = () => {
   objects.length = 0;
 
   params.wires.forEach((w, i) => {
-    const p1 = new THREE.Vector3(w.x1, w.y1, w.z1);
-    const p2 = new THREE.Vector3(w.x2, w.y2, w.z2);
+    const x1 = parseFloat(w.x1), y1 = parseFloat(w.y1), z1 = parseFloat(w.z1);
+    const x2 = parseFloat(w.x2), y2 = parseFloat(w.y2), z2 = parseFloat(w.z2);
+    
+    if (![x1, y1, z1, x2, y2, z2].every(Number.isFinite)) return;
+
+    const p1 = new THREE.Vector3(x1, y1, z1);
+    const p2 = new THREE.Vector3(x2, y2, z2);
     const dist = p1.distanceTo(p2);
     
-    if (dist > 0.000001) {
-      const geometry = new THREE.CylinderGeometry(Number(w.rad), Number(w.rad), dist, 8, 1);
+    if (dist > 0.000001 && Number.isFinite(dist)) {
+      const safeRad = Number.isFinite(parseFloat(w.rad)) ? parseFloat(w.rad) : 0.001;
+      const geometry = new THREE.CylinderGeometry(safeRad, safeRad, dist, 8, 1);
       const material = new THREE.MeshBasicMaterial({ color: 0x000000 });
       const cyl = new THREE.Mesh(geometry, material);
       
@@ -313,10 +348,12 @@ const update3DScene = () => {
     }
 
     if (i + 1 === params.source.tag) {
-      const t = (params.source.seg - 0.5) / w.segs;
-      const sp = new THREE.Vector3().lerpVectors(p1, p2, t);
+      const sp = getSourcePosition();
+      const rawRad = parseFloat(w.rad);
+      const safeRad = Number.isFinite(rawRad) ? rawRad : 0.001;
+
       const sph = new THREE.Mesh(
-        new THREE.SphereGeometry(Math.max(0.01, w.rad * 4), 8, 8),
+        new THREE.SphereGeometry(Math.max(0.01, safeRad * 4), 8, 8),
         new THREE.MeshBasicMaterial({ color: 0x000000 })
       );
       sph.position.copy(sp);
@@ -350,10 +387,12 @@ const update3DScene = () => {
     let globalIdx = 0;
     params.wires.forEach((w) => {
       const segs = w.segs;
+      if (!Number(w.x1) && w.x1 !== 0) { globalIdx += segs; return; }
+
       const pts = [];
 
-      const p1 = new THREE.Vector3(w.x1, w.y1, w.z1);
-      const p2 = new THREE.Vector3(w.x2, w.y2, w.z2);
+      const p1 = new THREE.Vector3(Number(w.x1), Number(w.y1), Number(w.z1));
+      const p2 = new THREE.Vector3(Number(w.x2), Number(w.y2), Number(w.z2));
       const dir = new THREE.Vector3().subVectors(p2, p1).normalize();
 
       let normal = prefGlobalNormal
@@ -406,14 +445,7 @@ const update3DScene = () => {
     const sceneSize = box.getSize(new THREE.Vector3()).length() || 1;
     const rScale = sceneSize * 0.8;
 
-    let sourceCenter = new THREE.Vector3(0, 0, 0);
-    if (params.wires.length >= params.source.tag && params.source.tag > 0) {
-      const sourceWire = params.wires[params.source.tag - 1];
-      const p1 = new THREE.Vector3(sourceWire.x1, sourceWire.y1, sourceWire.z1);
-      const p2 = new THREE.Vector3(sourceWire.x2, sourceWire.y2, sourceWire.z2);
-      const t = (params.source.seg - 0.5) / sourceWire.segs;
-      sourceCenter = new THREE.Vector3().lerpVectors(p1, p2, t);
-    }
+    const sourceCenter = getSourcePosition();
 
     const getColor = (val) => {
       let norm = (val - minG) / (maxG - minG);
@@ -589,18 +621,20 @@ const delWire = (i) => params.wires.splice(i, 1);
           Calculate
         </button>
         <table v-if="result.hasResult" style="width: 100%; border-collapse: collapse; margin-top: 10px;">
-          <tr>
-            <td>SWR</td>
-            <td style="text-align: right;">{{ result.swr.toFixed(3) }}</td>
-          </tr>
-          <tr>
-            <td>Max Gain</td>
-            <td style="text-align: right;">{{ result.gain.toFixed(2) }} dBi</td>
-          </tr>
-          <tr>
-            <td>Z</td>
-            <td style="text-align: right;">{{ result.z_r.toFixed(1) }} {{ result.z_i >= 0 ? "+" : "" }}{{ result.z_i.toFixed(1) }}j</td>
-          </tr>
+          <tbody>
+            <tr>
+              <td>SWR</td>
+              <td style="text-align: right;">{{ result.swr.toFixed(3) }}</td>
+            </tr>
+            <tr>
+              <td>Max Gain</td>
+              <td style="text-align: right;">{{ result.gain.toFixed(2) }} dBi</td>
+            </tr>
+            <tr>
+              <td>Z</td>
+              <td style="text-align: right;">{{ result.z_r.toFixed(1) }} {{ result.z_i >= 0 ? "+" : "" }}{{ result.z_i.toFixed(1) }}j</td>
+            </tr>
+          </tbody>
         </table>
       </div>
       <div v-else class="analysis-panel">
