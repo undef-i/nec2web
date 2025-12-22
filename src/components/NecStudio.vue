@@ -1,12 +1,5 @@
 <script setup>
-import {
-  ref,
-  reactive,
-  onMounted,
-  onBeforeUnmount,
-  watch,
-  nextTick,
-} from "vue";
+import { ref, reactive, onMounted, onBeforeUnmount, watch, nextTick } from "vue";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import AnalysisCharts from "./AnalysisCharts.vue";
@@ -193,7 +186,7 @@ const runSingle = () => {
   }, 10);
 };
 
-const runSweep = async () => {
+const runSweep = async (startFreq, endFreq, stepsNum) => {
   if (!wasmModule.value || params.wires.length === 0) return;
   status.calculating = true;
   status.progress = 0;
@@ -202,9 +195,9 @@ const runSweep = async () => {
   sweepData.values = [];
   sweepData.impedance = [];
 
-  const start = Number(sweepParams.start);
-  const end = Number(sweepParams.end);
-  const steps = parseInt(sweepParams.steps);
+  const start = Number(startFreq);
+  const end = Number(endFreq);
+  const steps = parseInt(stepsNum);
   const stepSize = (end - start) / steps;
 
   for (let i = 0; i <= steps; i++) {
@@ -218,7 +211,7 @@ const runSweep = async () => {
         let val = res.swr_50;
         if (val > 20 || isNaN(val)) val = 20;
 
-        sweepData.labels.push(f.toFixed(1));
+        sweepData.labels.push(f);
         sweepData.values.push(val);
         sweepData.impedance.push({ r: res.impedance.r, i: res.impedance.i });
       }
@@ -298,16 +291,26 @@ const update3DScene = () => {
   });
   objects.length = 0;
 
-  const wireMat = new THREE.LineBasicMaterial({ color: 0x000000 });
   params.wires.forEach((w, i) => {
     const p1 = new THREE.Vector3(w.x1, w.y1, w.z1);
     const p2 = new THREE.Vector3(w.x2, w.y2, w.z2);
-    const line = new THREE.Line(
-      new THREE.BufferGeometry().setFromPoints([p1, p2]),
-      wireMat
-    );
-    scene.add(line);
-    objects.push(line);
+    const dist = p1.distanceTo(p2);
+    
+    if (dist > 0.000001) {
+      const geometry = new THREE.CylinderGeometry(Number(w.rad), Number(w.rad), dist, 8, 1);
+      const material = new THREE.MeshBasicMaterial({ color: 0x000000 });
+      const cyl = new THREE.Mesh(geometry, material);
+      
+      const midpoint = new THREE.Vector3().lerpVectors(p1, p2, 0.5);
+      cyl.position.copy(midpoint);
+      
+      const axis = new THREE.Vector3(0, 1, 0);
+      const tangent = new THREE.Vector3().subVectors(p2, p1).normalize();
+      cyl.quaternion.setFromUnitVectors(axis, tangent);
+      
+      scene.add(cyl);
+      objects.push(cyl);
+    }
 
     if (i + 1 === params.source.tag) {
       const t = (params.source.seg - 0.5) / w.segs;
@@ -469,11 +472,9 @@ const update3DScene = () => {
   }
 };
 
-watch(
-  () => [params.wires, ui.scale, ui.showCurrents, ui.showPattern],
-  update3DScene,
-  { deep: true }
-);
+watch(() => [params.wires, ui.scale, ui.showCurrents, ui.showPattern], update3DScene, {
+  deep: true,
+});
 
 const animate = () => {
   animationId = requestAnimationFrame(animate);
@@ -483,14 +484,14 @@ const animate = () => {
 
 const addWire = () =>
   params.wires.push({
-    x1: 0,
-    y1: 0,
-    z1: 0,
-    x2: 0.1,
-    y2: 0,
-    z2: 0,
-    rad: 0.001,
-    segs: 5,
+    x1: undefined,
+    y1: undefined,
+    z1: undefined,
+    x2: undefined,
+    y2: undefined,
+    z2: undefined,
+    rad: undefined,
+    segs: undefined,
   });
 const delWire = (i) => params.wires.splice(i, 1);
 </script>
@@ -517,7 +518,7 @@ const delWire = (i) => params.wires.splice(i, 1);
         <label for="mode2">Analysis</label>
       </div>
       <hr />
-      <div v-if="ui.tab === 'single'">
+      <div v-if="ui.tab === 'single'" class="scroll-content">
         <details open>
           <summary>View</summary>
           <div>
@@ -531,14 +532,12 @@ const delWire = (i) => params.wires.splice(i, 1);
             />
           </div>
           <div>
-            <input type="checkbox" id="curr" v-model="ui.showCurrents" /><label
-              for="curr"
+            <input type="checkbox" id="curr" v-model="ui.showCurrents" /><label for="curr"
               >Currents</label
             >
           </div>
           <div>
-            <input type="checkbox" id="patt" v-model="ui.showPattern" /><label
-              for="patt"
+            <input type="checkbox" id="patt" v-model="ui.showPattern" /><label for="patt"
               >3D Pattern</label
             >
           </div>
@@ -551,27 +550,29 @@ const delWire = (i) => params.wires.splice(i, 1);
           <button @click="addWire">Add</button>
           <div v-for="(w, i) in params.wires" :key="i" class="wire-item">
             <div style="display: flex">
-              <b>#{{ i + 1 }}</b
-              ><a
-                href="javascript:void(0)"
-                @click="delWire(i)"
-                style="margin-left: auto"
+              <b>#{{ i + 1 }}</b>
+              <a href="javascript:void(0)" @click="delWire(i)" style="margin-left: auto"
                 >Del</a
               >
             </div>
-            <div>
-              <input v-model.number="w.x1" class="coord" /><input
-                v-model.number="w.y1"
-                class="coord"
-              /><input v-model.number="w.z1" class="coord" /> to
-              <input v-model.number="w.x2" class="coord" /><input
-                v-model.number="w.y2"
-                class="coord"
-              /><input v-model.number="w.z2" class="coord" />
+
+            <div class="coords-stack">
+              <input v-model.number="w.x1" class="full" placeholder="x1" />
+              <input v-model.number="w.y1" class="full" placeholder="y1" />
+              <input v-model.number="w.z1" class="full" placeholder="z1" />
+              <div class="to-link">to</div>
+              <input v-model.number="w.x2" class="full" placeholder="x2" />
+              <input v-model.number="w.y2" class="full" placeholder="y2" />
+              <input v-model.number="w.z2" class="full" placeholder="z2" />
             </div>
-            <div>
-              R <input v-model.number="w.rad" class="short" /> Seg
-              <input v-model.number="w.segs" class="short" />
+
+            <div class="param-row">
+              <label>R</label>
+              <input v-model.number="w.rad" placeholder="m" />
+            </div>
+            <div class="param-row">
+              <label>Seg</label>
+              <input v-model.number="w.segs" placeholder="Count" />
             </div>
           </div>
         </details>
@@ -587,53 +588,28 @@ const delWire = (i) => params.wires.splice(i, 1);
         >
           Calculate
         </button>
-        <div
-          v-if="result.hasResult"
-          style="margin-top: 10px; border: 1px solid black; padding: 5px"
-        >
-          <div>SWR: {{ result.swr.toFixed(3) }}</div>
-          <div>Max Gain: {{ result.gain.toFixed(2) }} dBi</div>
-          <div>
-            Z: {{ result.z_r.toFixed(1) }} {{ result.z_i >= 0 ? "+" : ""
-            }}{{ result.z_i.toFixed(1) }}j
-          </div>
-        </div>
+        <table v-if="result.hasResult" style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+          <tr>
+            <td>SWR</td>
+            <td style="text-align: right;">{{ result.swr.toFixed(3) }}</td>
+          </tr>
+          <tr>
+            <td>Max Gain</td>
+            <td style="text-align: right;">{{ result.gain.toFixed(2) }} dBi</td>
+          </tr>
+          <tr>
+            <td>Z</td>
+            <td style="text-align: right;">{{ result.z_r.toFixed(1) }} {{ result.z_i >= 0 ? "+" : "" }}{{ result.z_i.toFixed(1) }}j</td>
+          </tr>
+        </table>
       </div>
       <div v-else class="analysis-panel">
-        <fieldset>
-          <legend>Range</legend>
-          Start
-          <input
-            type="number"
-            v-model.number="sweepParams.start"
-            style="width: 50px"
-          />
-          End
-          <input
-            type="number"
-            v-model.number="sweepParams.end"
-            style="width: 50px"
-          />
-          Steps
-          <input
-            type="number"
-            v-model.number="sweepParams.steps"
-            style="width: 40px"
-          />
-        </fieldset>
-        <button
-          @click="runSweep"
-          :disabled="status.calculating"
-          style="margin-top: 10px"
-        >
-          {{
-            status.calculating ? `Running ${status.progress}%` : "Run Analysis"
-          }}
-        </button>
-
-        <div class="chart-container-wrapper">
-          <AnalysisCharts :data="sweepData" :range="sweepParams" />
-        </div>
+        <AnalysisCharts
+          :data="sweepData"
+          v-model="sweepParams"
+          :on-run="runSweep"
+          :is-calculating="status.calculating"
+        />
       </div>
       <div style="margin-top: auto; padding-top: 10px; text-align: center">
         <a href="https://github.com/undef-i/nec2web" target="_blank">GitHub</a>
@@ -665,12 +641,12 @@ const delWire = (i) => params.wires.splice(i, 1);
   top: 0;
   left: 0;
   bottom: 0;
-  max-width: 340px;
+  width: 340px;
+  max-width: 100vw;
   background: white;
   border-right: 1px solid black;
   z-index: 10;
   padding: 10px;
-  overflow-y: auto;
   transform: translateX(0);
   transition: transform 0.1s;
   display: flex;
@@ -678,6 +654,16 @@ const delWire = (i) => params.wires.splice(i, 1);
 }
 .sidebar.closed {
   transform: translateX(-100%);
+}
+.scroll-content {
+  overflow-y: auto;
+  flex: 1;
+}
+.analysis-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
 }
 summary {
   cursor: pointer;
@@ -688,20 +674,21 @@ summary {
   margin-top: 5px;
   padding-top: 2px;
 }
+.coords-stack {
+  display: flex;
+  flex-direction: column;
+}
+
 .coord {
-  width: 40px;
+  width: 50px;
 }
 .short {
   width: 35px;
 }
-.analysis-panel {
+
+.param-row {
   display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-.chart-container-wrapper {
-  flex: 1;
-  margin-top: 10px;
-  overflow-y: auto;
+  justify-content: space-between;
+  align-items: center;
 }
 </style>
