@@ -2,9 +2,46 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" href="data:,">
+    <link rel="icon" href="/favicon.ico">
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>nec2web</title>
+    <title>nec2web - NEC2++ Antenna Simulation</title>
+    <meta name="description" content="WebAssembly port of NEC2++ for electromagnetic simulation. A utility for antenna modeling, 3D geometry editing, and parameter tuning." />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://nec.noxylva.org/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="nec2web" />
+    <meta property="og:description" content="WebAssembly port of NEC2++ for electromagnetic simulation." />
+    <meta property="og:url" content="https://nec.noxylva.org/" />
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "nec2web",
+      "url": "https://nec.noxylva.org/",
+      "applicationCategory": "UtilityApplication",
+      "operatingSystem": "Browser",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "featureList": "NEC2 simulation, 3D geometry editor, Smith chart, Radiation pattern",
+      "browserRequirements": "Requires WebAssembly support",
+      "description": "WebAssembly port of NEC2++ for electromagnetic simulation."
+    }
+    </script>
+    <style>
+      html, body, #app {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+      *, *::before, *::after {
+        box-sizing: border-box;
+      }
+    </style>
   </head>
   <body>
     <div id="app"></div>
