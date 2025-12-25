@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://nec.noxylva.org/sitemap.xml

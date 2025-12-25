@@ -8,7 +8,7 @@ const props = defineProps({
   },
   modelValue: {
     type: Object,
-    required: true, 
+    required: true,
   },
   onRun: {
     type: Function,
@@ -106,14 +106,29 @@ const smithCx = smithSize / 2;
 const smithCy = smithSize / 2;
 
 const getSmithPt = (r, x) => {
+  const rVal = Number(r);
+  const xVal = Number(x);
+
+  if (!Number.isFinite(rVal) || !Number.isFinite(xVal)) {
+    return { x: smithCx + smithR, y: smithCy };
+  }
+
   const z0 = 50;
-  const rn = r / z0;
-  const xn = x / z0;
+  const rn = rVal / z0;
+  const xn = xVal / z0;
   const den = (rn + 1) ** 2 + xn ** 2;
-  if (den === 0) return { x: smithCx - smithR, y: smithCy }; 
+
+  if (den === 0) {
+    return { x: smithCx - smithR, y: smithCy };
+  }
 
   const u = (rn ** 2 + xn ** 2 - 1) / den;
   const v = (2 * xn) / den;
+
+  if (Number.isNaN(u) || Number.isNaN(v)) {
+    return { x: smithCx + smithR, y: smithCy };
+  }
+
   return {
     x: smithCx + u * smithR,
     y: smithCy - v * smithR,
@@ -139,7 +154,7 @@ const smithGrids = computed(() => {
   const xCircles = [];
   xValues.forEach((xVal) => {
     const rad = (1 / xVal) * smithR;
-    const cx = smithCx + smithR; 
+    const cx = smithCx + smithR;
     xCircles.push({
       cx: cx,
       cy: smithCy - (1 / xVal) * smithR,
@@ -296,7 +311,7 @@ const runAnalysis = async () => {
 
 const runOptimization = async () => {
   if (props.isCalculating) return;
-  
+
   if (!props.data.values || props.data.values.length === 0) {
     await runAnalysis();
   }
@@ -331,7 +346,7 @@ const runOptimization = async () => {
     syncRange();
 
     await props.onRun(newStart, newEnd, Number(localRange.value.steps));
-    
+
     currentIter++;
   }
 };
@@ -339,7 +354,7 @@ const runOptimization = async () => {
 
 <template>
   <div class="charts-root" ref="container">
-    
+
     <div class="control-panel">
       <div class="row">
         <label>Start</label>
@@ -389,60 +404,20 @@ const runOptimization = async () => {
 
     <div class="chart-wrapper">
       <div class="axis-label-y">SWR</div>
-      <svg
-        class="chart-svg"
-        :viewBox="`0 0 ${width} ${swrHeight}`"
-        preserveAspectRatio="none"
-        @mousemove="onSwrMove"
-        @touchmove.prevent="onSwrTouch"
-        @touchstart.prevent="onSwrTouch"
-        @mouseleave="onLeave"
-      >
+      <svg class="chart-svg" :viewBox="`0 0 ${width} ${swrHeight}`" preserveAspectRatio="none" @mousemove="onSwrMove"
+        @touchmove.prevent="onSwrTouch" @touchstart.prevent="onSwrTouch" @mouseleave="onLeave">
         <g class="grid">
-          <line
-            v-for="t in yTicks"
-            :key="'ygrid-'+t.val"
-            x1="0"
-            :y1="t.y"
-            :x2="width"
-            :y2="t.y"
-          />
-          <line
-            v-for="t in xTicks"
-            :key="'xgrid-'+t.val"
-            :x1="t.x"
-            y1="0"
-            :x2="t.x"
-            :y2="swrHeight"
-          />
+          <line v-for="t in yTicks" :key="'ygrid-' + t.val" x1="0" :y1="t.y" :x2="width" :y2="t.y" />
+          <line v-for="t in xTicks" :key="'xgrid-' + t.val" :x1="t.x" y1="0" :x2="t.x" :y2="swrHeight" />
         </g>
         <path :d="swrPath" fill="none" stroke="#000" stroke-width="1.5" />
-        <circle
-          v-if="activeInfo"
-          :cx="activeInfo.swrPt.x"
-          :cy="activeInfo.swrPt.y"
-          r="4"
-          fill="#000"
-        />
+        <circle v-if="activeInfo" :cx="activeInfo.swrPt.x" :cy="activeInfo.swrPt.y" r="4" fill="#000" />
         <g class="axis-text">
-          <text
-            v-for="(t, i) in yTicks"
-            :key="'ylabel-'+t.val"
-            v-show="i !== 0"
-            x="2"
-            :y="t.y - 3"
-          >
+          <text v-for="(t, i) in yTicks" :key="'ylabel-' + t.val" v-show="i !== 0" x="2" :y="t.y - 3">
             {{ t.val }}
           </text>
-          <text
-            v-for="(t, i) in xTicks"
-            :key="'xlabel-'+t.val"
-            :x="t.x"
-            :y="swrHeight - 3"
-            :text-anchor="
-              i === 0 ? 'start' : i === xTicks.length - 1 ? 'end' : 'middle'
-            "
-          >
+          <text v-for="(t, i) in xTicks" :key="'xlabel-' + t.val" :x="t.x" :y="swrHeight - 3" :text-anchor="i === 0 ? 'start' : i === xTicks.length - 1 ? 'end' : 'middle'
+            ">
             {{ t.val }}
           </text>
         </g>
@@ -451,14 +426,8 @@ const runOptimization = async () => {
 
     <div class="chart-wrapper smith-wrapper">
       <div class="axis-label-y" style="top: 2px; right: 5px; left: auto;">Smith</div>
-      <svg
-        class="smith-svg"
-        :viewBox="`0 0 ${smithSize} ${smithSize}`"
-        @mousemove="onSmithMove"
-        @touchmove.prevent="onSmithTouch"
-        @touchstart.prevent="onSmithTouch"
-        @mouseleave="onLeave"
-      >
+      <svg class="smith-svg" :viewBox="`0 0 ${smithSize} ${smithSize}`" @mousemove="onSmithMove"
+        @touchmove.prevent="onSmithTouch" @touchstart.prevent="onSmithTouch" @mouseleave="onLeave">
         <defs>
           <clipPath id="smith-clip">
             <circle :cx="smithCx" :cy="smithCy" :r="smithR" />
@@ -466,61 +435,22 @@ const runOptimization = async () => {
         </defs>
 
         <g class="smith-grid">
-          <circle
-            :cx="smithCx"
-            :cy="smithCy"
-            :r="smithR"
-            fill="#fff"
-            stroke="none"
-          />
+          <circle :cx="smithCx" :cy="smithCy" :r="smithR" fill="#fff" stroke="none" />
           <g clip-path="url(#smith-clip)">
-             <circle 
-                v-for="(c, i) in smithGrids.xCircles"
-                :key="'x-'+i"
-                :cx="c.cx"
-                :cy="c.cy"
-                :r="c.r"
-                fill="none"
-                :stroke="c.isPrime ? '#ccc' : '#eee'"
-             />
+            <circle v-for="(c, i) in smithGrids.xCircles" :key="'x-' + i" :cx="c.cx" :cy="c.cy" :r="c.r" fill="none"
+              :stroke="c.isPrime ? '#ccc' : '#eee'" />
           </g>
-          <circle
-            v-for="(c, i) in smithGrids.rCircles"
-            :key="'r-'+i"
-            :cx="c.cx"
-            :cy="c.cy"
-            :r="c.r"
-            fill="none"
-            :stroke="c.isPrime ? '#ccc' : '#eee'"
-          />
-          <line
-            :x1="smithCx - smithR"
-            :y1="smithCy"
-            :x2="smithCx + smithR"
-            :y2="smithCy"
-            stroke="#ccc"
-          />
-          <circle
-            :cx="smithCx"
-            :cy="smithCy"
-            :r="smithR"
-            fill="none"
-            stroke="#999"
-          />
+          <circle v-for="(c, i) in smithGrids.rCircles" :key="'r-' + i" :cx="c.cx" :cy="c.cy" :r="c.r" fill="none"
+            :stroke="c.isPrime ? '#ccc' : '#eee'" />
+          <line :x1="smithCx - smithR" :y1="smithCy" :x2="smithCx + smithR" :y2="smithCy" stroke="#ccc" />
+          <circle :cx="smithCx" :cy="smithCy" :r="smithR" fill="none" stroke="#999" />
         </g>
 
         <path :d="smithPath" fill="none" stroke="#000" stroke-width="2" />
-        
-        <circle
-          v-if="activeInfo"
-          :cx="activeInfo.smithPt.x"
-          :cy="activeInfo.smithPt.y"
-          r="4"
-          fill="#000"
-          stroke="#fff"
-          stroke-width="1"
-        />
-        
+
+        <circle v-if="activeInfo" :cx="activeInfo.smithPt.x" :cy="activeInfo.smithPt.y" r="4" fill="#000" stroke="#fff"
+          stroke-width="1" />
+
         <text :x="smithCx - smithR + 2" :y="smithCy - 2" class="smith-label">0Ω</text>
         <text :x="smithCx + smithR - 15" :y="smithCy - 2" class="smith-label">∞</text>
         <text :x="smithCx - 2" :y="smithCy - 2" class="smith-label" text-anchor="end">50Ω</text>
