@@ -273,13 +273,18 @@ const getSourcePosition = () => {
     const z2 = parseFloat(w.z2);
     const segs = parseFloat(w.segs);
 
-    if (![x1, y1, z1, x2, y2, z2, segs].every(Number.isFinite)) {
+    if (![x1, y1, z1, x2, y2, z2, segs].every(Number.isFinite) || segs <= 0) {
       return new THREE.Vector3(0, 0, 0);
     }
 
+    const segIdx = Number(params.source.seg);
     const p1 = new THREE.Vector3(x1, y1, z1);
     const p2 = new THREE.Vector3(x2, y2, z2);
-    const t = (Number(params.source.seg) - 0.5) / segs;
+
+    if (segIdx <= 1) return p1; 
+    if (segIdx >= segs) return p2;
+
+    const t = (segIdx - 0.5) / segs; 
     return new THREE.Vector3().lerpVectors(p1, p2, t);
   }
   return new THREE.Vector3(0, 0, 0);

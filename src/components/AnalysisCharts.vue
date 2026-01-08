@@ -28,6 +28,7 @@ const swrHeight = 150;
 const smithSize = 300;
 const hoverIndex = ref(-1);
 const optimizeIter = ref(3);
+const touchHitRadius = 18;
 
 const localRange = ref({ ...props.modelValue });
 
@@ -211,8 +212,27 @@ const onSwrMove = (e) => {
 
 const onSwrTouch = (e) => {
   const rect = e.currentTarget.getBoundingClientRect();
-  if (e.touches && e.touches[0]) {
-    updateHoverFromX(e.touches[0].clientX - rect.left);
+  if (!(e.touches && e.touches[0])) return;
+
+  const mx = e.touches[0].clientX - rect.left;
+  const my = e.touches[0].clientY - rect.top;
+  const scaleX = width.value > 0 ? rect.width / width.value : 1;
+  const scaleY = swrHeight > 0 ? rect.height / swrHeight : 1;
+
+  let closestIdx = -1;
+  let minDistSq = Infinity;
+  swrPoints.value.forEach((pt, i) => {
+    const dx = pt.x * scaleX - mx;
+    const dy = pt.y * scaleY - my;
+    const d2 = dx * dx + dy * dy;
+    if (d2 < minDistSq) {
+      minDistSq = d2;
+      closestIdx = i;
+    }
+  });
+
+  if (minDistSq <= touchHitRadius * touchHitRadius) {
+    hoverIndex.value = closestIdx;
   }
 };
 
@@ -242,12 +262,29 @@ const onSmithMove = (e) => {
 
 const onSmithTouch = (e) => {
   const rect = e.currentTarget.getBoundingClientRect();
-  if (e.touches && e.touches[0]) {
-    updateHoverFromSmith(
-      e.touches[0].clientX - rect.left,
-      e.touches[0].clientY - rect.top,
-      rect
-    );
+  if (!(e.touches && e.touches[0])) return;
+
+  const mx = e.touches[0].clientX - rect.left;
+  const my = e.touches[0].clientY - rect.top;
+  const scaleX = rect.width > 0 ? smithSize / rect.width : 1;
+  const scaleY = rect.height > 0 ? smithSize / rect.height : 1;
+  const sx = mx * scaleX;
+  const sy = my * scaleY;
+
+  let closestIdx = -1;
+  let minDistSq = Infinity;
+  smithPoints.value.forEach((pt, i) => {
+    const dx = pt.x - sx;
+    const dy = pt.y - sy;
+    const d2 = dx * dx + dy * dy;
+    if (d2 < minDistSq) {
+      minDistSq = d2;
+      closestIdx = i;
+    }
+  });
+
+  if (minDistSq <= touchHitRadius * touchHitRadius) {
+    hoverIndex.value = closestIdx;
   }
 };
 
@@ -405,7 +442,7 @@ const runOptimization = async () => {
     <div class="chart-wrapper">
       <div class="axis-label-y">SWR</div>
       <svg class="chart-svg" :viewBox="`0 0 ${width} ${swrHeight}`" preserveAspectRatio="none" @mousemove="onSwrMove"
-        @touchmove.prevent="onSwrTouch" @touchstart.prevent="onSwrTouch" @mouseleave="onLeave">
+        @touchmove="onSwrTouch" @touchstart="onSwrTouch" @mouseleave="onLeave">
         <g class="grid">
           <line v-for="t in yTicks" :key="'ygrid-' + t.val" x1="0" :y1="t.y" :x2="width" :y2="t.y" />
           <line v-for="t in xTicks" :key="'xgrid-' + t.val" :x1="t.x" y1="0" :x2="t.x" :y2="swrHeight" />
@@ -427,7 +464,7 @@ const runOptimization = async () => {
     <div class="chart-wrapper smith-wrapper">
       <div class="axis-label-y" style="top: 2px; right: 5px; left: auto;">Smith</div>
       <svg class="smith-svg" :viewBox="`0 0 ${smithSize} ${smithSize}`" @mousemove="onSmithMove"
-        @touchmove.prevent="onSmithTouch" @touchstart.prevent="onSmithTouch" @mouseleave="onLeave">
+        @touchmove="onSmithTouch" @touchstart="onSmithTouch" @mouseleave="onLeave">
         <defs>
           <clipPath id="smith-clip">
             <circle :cx="smithCx" :cy="smithCy" :r="smithR" />
@@ -509,6 +546,7 @@ const runOptimization = async () => {
   display: block;
   overflow: hidden;
   cursor: crosshair;
+  touch-action: pan-y;
 }
 
 .smith-wrapper {
@@ -525,6 +563,7 @@ const runOptimization = async () => {
   aspect-ratio: 1/1;
   display: block;
   cursor: crosshair;
+  touch-action: pan-y;
 }
 
 .grid line {
